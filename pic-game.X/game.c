@@ -14,11 +14,14 @@
 #define BTN_SD 0x10
 #define BTN_HD 0x20 
 
-#define STATUS_NORMAL 0
-#define STATUS_SCORING 1
-#define STATUS_CLEARING 2
-#define STATUS_MOVING 3
+#define STATUS_SELECT_SKIN 0
+#define STATUS_NORMAL 1
+#define STATUS_SCORING 2
+#define STATUS_CLEARING 3
+#define STATUS_MOVING 4
 #define STATUS_DEAD 0xff
+
+#define GRAVITY_INCREMENT 2
 
 #define TETROMINO_DATA_INDEX(id,rot) ((uint8_t)((((uint8_t)(id << 2))|rot)<<3))
 
@@ -46,14 +49,25 @@ static uint8_t presses = 0;
 static uint8_t completed_rows[4];
 static uint8_t completed_row_count;
 
-const uint8_t column_xs[] = { 4, 16, 28, 40, 52, 64, 76, 88, 100, 112 };
-const uint8_t row_ys[]    = { 0xff, 0xff, 0xff, 0, 12, 24, 36, 48, 60, 72, 84, 96, 108, 120, 132, 144 };
+static uint8_t level_row_count;
+static uint16_t total_row_count;
 
-const uint8_t preview_tiles_left[]  = { 4, 13, 10, 0, 10, 10, 15 };
-const uint8_t preview_tiles_right[] = { 4,  6,  8, 9, 11,  5,  5 };
+static const uint8_t column_xs[] = { 4, 16, 28, 40, 52, 64, 76, 88, 100, 112 };
+static const uint8_t row_ys[]    = { 0xff, 0xff, 0xff, 0, 12, 24, 36, 48, 60, 72, 84, 96, 108, 120, 132, 144 };
 
-const uint8_t tetromino_data[] = {
+static const uint8_t preview_tiles_left[]  = { 4, 13, 10, 0, 10, 10, 15 };
+static const uint8_t preview_tiles_right[] = { 4,  6,  8, 9, 11,  5,  5 };
+
+static const uint8_t tetromino_data[] = {
 0, 1, 1, 1, 2, 1, 3, 1, 2, 0, 2, 1, 2, 2, 2, 3, 3, 2, 2, 2, 1, 2, 0, 2, 1, 3, 1, 2, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 2, 1, 2, 0, 1, 0, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 0, 1, 0, 2, 1, 2, 1, 1, 1, 0, 2, 0, 0, 1, 1, 1, 2, 1, 2, 2, 1, 0, 1, 1, 1, 2, 0, 2, 2, 1, 1, 1, 0, 1, 0, 0, 1, 2, 1, 1, 1, 0, 1, 0, 2, 0, 1, 1, 2, 1, 3, 0, 3, 1, 2, 0, 2, 1, 3, 2, 2, 2, 3, 1, 2, 1, 1, 2, 1, 1, 2, 2, 2, 1, 1, 0, 2, 0, 0, 1, 1, 1, 2, 1, 2, 2, 1, 0, 1, 1, 1, 2, 0, 2, 2, 1, 1, 1, 0, 1, 0, 0, 1, 2, 1, 1, 1, 0, 0, 1, 1, 1, 2, 1, 2, 1, 1, 0, 1, 1, 1, 2, 1, 2, 2, 1, 1, 1, 0, 1, 0, 1, 1, 2, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 2, 1, 2, 0, 2, 1, 1, 1, 1, 2, 2, 2, 1, 2, 1, 1, 0, 1, 0, 2, 0, 1, 1, 1, 1, 0
+};
+
+static const uint8_t score_tiles[] = {
+    'S'-' ',
+    'C'-' ',
+    'O'-' ',
+    'R'-' ',
+    'E'-' ',
 };
 
 #define SKIN_M 0
@@ -140,7 +154,7 @@ uint8_t get_tile_id(uint8_t tetromino_id, uint8_t tetromino_rotation, uint8_t i)
 
 void game_init(void)
 {
-    status = STATUS_NORMAL;
+    status = STATUS_SELECT_SKIN;
     for (uint8_t i = 0; i < TILEMAP_SIZE; i++)
     {
         playfield[i] = 0;
@@ -151,12 +165,11 @@ void game_init(void)
     tetromino_y = 0;
     pending_tetromino_id = 0xff;
     
-    gravity_speed = 5;
+    gravity_speed = 3;
     gravity_counter = 0;
     
-    randomize_pending_tetromino();
-    
-    screen_set_palette(skin_palettes[skin], skin_palette_color_counts[skin]);
+    level_row_count = 0;
+    total_row_count = 0;
 }
 
 uint8_t tetromino_intersects()
@@ -213,6 +226,39 @@ void place_tetromino()
     {
         status = STATUS_SCORING;
     }
+}
+
+void game_update_select_skin(void)
+{
+    if (presses & (BTN_R | BTN_RR)) {
+        skin++;
+    }
+    
+    if (presses & (BTN_L | BTN_RL)) {
+        skin--;
+    }
+    
+    skin &= 3;
+    
+    screen_set_palette(skin_palettes[skin], skin_palette_color_counts[skin]);
+    
+    if (presses & (BTN_HD | BTN_SD)) {
+        // Hard drop or soft drop was pressed.
+        // Transition to gameplay.
+        tetromino_id = 0xff;
+        tetromino_x = 0;
+        tetromino_y = 0;
+        status = STATUS_NORMAL;
+        
+        randomize_pending_tetromino();
+        
+        return;
+    }
+    
+    // Use the active tetromino to show the skin.
+    tetromino_id = 0;
+    tetromino_x = 3;
+    tetromino_y = 3;
 }
 
 void game_update_normal(void)
@@ -392,6 +438,20 @@ void game_update_scoring() {
     }
     
     // TODO : add to score.
+    
+    total_row_count += completed_row_count;
+    if (total_row_count > 999) total_row_count = 999;
+    level_row_count += completed_row_count;
+    if (level_row_count >= 10) {
+        level_row_count -= 10;
+        // Increase gravity.
+        if (gravity_speed >= 0xff - GRAVITY_INCREMENT) {
+            gravity_speed = 0xff;
+        } else {
+            gravity_speed += GRAVITY_INCREMENT;
+        }
+    }
+    
     tetromino_x = 0;
     status = STATUS_CLEARING;
 }
@@ -444,8 +504,26 @@ void game_update_moving() {
     move_dest_y--;
 }
 
-uint8_t test_timer_lo = 0;
-uint8_t test_timer_hi = 0;
+void game_update_dead(void)
+{
+    if (presses & (BTN_SD|BTN_HD)) {
+        // Start a new game.
+        game_init();
+        return;
+    }
+    
+    uint8_t score_x = 5;
+    uint8_t remaining_score = total_row_count;
+    for (int i = 0; i < 3; i++) {
+        playfield[TILE_INDEX(5-i, 7)] = remaining_score % 10 + ('0' - ' ');
+        remaining_score /= 10;
+    }
+    
+    for (int i = 0; i < sizeof(score_tiles)/sizeof(score_tiles[0]); i++) {
+        playfield[TILE_INDEX(2+i, 6)] = score_tiles[i];
+    }
+}
+
 void game_update(void)
 {
     uint8_t new_buttons = 0;
@@ -484,6 +562,10 @@ void game_update(void)
     
     switch (status)
     {
+        case STATUS_SELECT_SKIN:
+            game_update_select_skin();
+            break;
+        
         case STATUS_NORMAL:
             game_update_normal();
             break;
@@ -502,8 +584,7 @@ void game_update(void)
             
         case STATUS_DEAD:
             // TODO
-            skin = (skin + 1) & 3;
-            game_init();
+            game_update_dead();
             break;
         
         default:
@@ -540,14 +621,5 @@ void game_update(void)
         draw_active_tetromino();
     }
 
-    test_timer_lo++;
-    if (test_timer_lo == 60)
-    {
-        test_timer_lo = 0;
-        test_timer_hi = test_timer_hi + 1;
-        if (test_timer_hi == 10) test_timer_hi = 0;
-    }
-    tilemap[3] = '0' - ' ' + test_timer_hi;
-    
     frame_counter++;
 }

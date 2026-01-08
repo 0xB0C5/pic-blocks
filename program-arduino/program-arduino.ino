@@ -98,13 +98,13 @@ void read_row(uint16_t address) {
 
 void unlock() {
   // Write unlock sequence.
-  for (int i = 0; i < sizeof(unlock_code); i++) {
+  for (unsigned int i = 0; i < sizeof(unlock_code); i++) {
     uint8_t b = unlock_code[i];
     write_byte(b);
   }
 }
 
-void setup() {
+void reset() {
   pinMode(PIN_POWER, OUTPUT);
   pinMode(PIN_MCLR, OUTPUT);
   pinMode(PIN_CLOCK, OUTPUT);
@@ -115,7 +115,6 @@ void setup() {
   digitalWrite(PIN_CLOCK, LOW);
   digitalWrite(PIN_DATA, LOW);
 
-  Serial.begin(115200);
 
   delay(500);
 
@@ -126,6 +125,17 @@ void setup() {
   delay(500);
 
   unlock();
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  reset();
+}
+
+void cmd_reset() {
+  reset();
+  Serial.write("#\n");
 }
 
 void cmd_erase() {
@@ -145,6 +155,8 @@ uint8_t serial_read_nibble() {
   } else if ('a' <= c && c <= 'z') {
     return 10 + (c - 'a');
   }
+
+  return 0xff;
 }
 
 uint16_t serial_read_word() {
@@ -243,6 +255,9 @@ void loop() {
   if (Serial.available()) {
     uint8_t b = Serial.read();
     switch (b) {
+      case '#':
+        cmd_reset();
+        break;
       case 'r':
         cmd_read();
         break;

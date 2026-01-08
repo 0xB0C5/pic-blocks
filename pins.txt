@@ -1,0 +1,15 @@
+RC5 - SCK
+RC4 - SDA
+RC3 - DC/A0
+RC2 - RESET
+
+RC0 - Button Right
+RC1 - Button Left
+
+RA1 - Button Clockwise
+RA2 - Button Counter-clockwise
+RA4 - Button Soft Drop
+RA5 - Button Hard Drop
+
+RA0 - Sound
+

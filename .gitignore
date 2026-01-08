@@ -1,4 +1,4 @@
-packed_data/**
+packed-data/**
 info/**
 
 img/out/**
@@ -15,5 +15,5 @@ img/out/**
 **.X/nbproject/*.bash
 **.X/nbproject/Makefile-genesis.properties
 
-__pycache__/**
+**/__pycache__/**
 

@@ -11,7 +11,7 @@ BAUD_RATE = 115200
 CONFIG_INDEX_START = 0x07
 CONFIG_INDEX_END   = 0x0c
 
-build_path = r'C:\Users\thebo\Code\pic-game\pic-game.X\dist\default\production\pic-game.X.production.hex'
+build_path = r'pic-game.X/dist/default/production/pic-game.X.production.hex'
  
 class Programmer:
     def __init__(self, args):
@@ -53,6 +53,11 @@ class Programmer:
         # print('Received:', res.decode('ascii').rstrip())
     
         return res
+
+    def reset(self):
+        res = self.send_command(b'#')
+        if res != b'#':
+            raise Exception(f'Bad response: {res}')
 
     def chip_erase(self):
         res = self.send_command(b'e')
@@ -149,7 +154,7 @@ def main():
     build = hex2bin.read_hex(build_path)
     build = bytearray(build)
     
-    packed_data = open('packed_data/combined.bin', 'rb').read()
+    packed_data = open('packed-data/combined.bin', 'rb').read()
     add_binary_data(build, PACKED_DATA_START_ADDR_WORDS * 2, packed_data)
 
     prg_rom = build[:PRG_ROM_SIZE_BYTES]
@@ -165,6 +170,8 @@ def main():
         return
 
     prg = Programmer(args)
+
+    prg.reset()
 
     prg.chip_erase()
 

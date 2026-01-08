@@ -12,7 +12,7 @@ void main(void)
     io_init();
     screen_init();
    
-    //audio_init();
+    audio_init();
     
     game_init();
     timer_init();

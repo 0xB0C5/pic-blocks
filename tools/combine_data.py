@@ -59,7 +59,7 @@ def run():
             fout.write(header)
         raise Exception('Packed data indices changed. Re-run code build.')
 
-    open('packed_data/combined.bin', 'wb').write(combined_data)
+    open('packed-data/combined.bin', 'wb').write(combined_data)
 
 if __name__ == '__main__':
     run()
